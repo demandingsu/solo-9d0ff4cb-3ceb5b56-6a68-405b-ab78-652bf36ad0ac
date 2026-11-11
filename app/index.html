@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>市政工程投标公告采集 API</title>
+<style>
+body { font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; margin: 40px; color: #222; }
+code { background: #f2f4f7; padding: 2px 6px; border-radius: 4px; }
+li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<h1>市政工程投标公告采集 API</h1>
+<h2>接口</h2>
+<ul>
+  <li><code>POST /api/collect</code> — 传入 <code>{"catalog_url": "..."}</code> 触发采集，成功后整体替换旧结果，失败保留旧结果</li>
+  <li><code>GET /api/tenders</code> — 各标段当前投标截止时间汇总（冲突标段 status=conflict）</li>
+  <li><code>GET /api/tenders/{招标编号}</code> — 单标段有效公告链、失效原因与来源链接</li>
+  <li><code>GET /api/raw</code> — 最近一次采集的原始公告数据</li>
+  <li><code>GET /docs</code> — Swagger 交互文档</li>
+  <li><a href="/sample/index.html">离线分页 HTML 公告样例</a>（<code>/sample</code>，纯静态无外部依赖）</li>
+</ul>
+<h2>典型流程</h2>
+<ol>
+  <li>打开 <a href="/sample/index.html">样例目录</a>，复制目录第一页 URL</li>
+  <li>调用 <code>POST /api/collect</code> 采集</li>
+  <li>调用 <code>GET /api/tenders</code> 核对截止时间；冲突标段进入详情查看冲突公告来源</li>
+</ol>
+</body>
+</html>

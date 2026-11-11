@@ -1,0 +1,19 @@
+services:
+  tender-api:
+    build: .
+    container_name: tender-collector-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - tender-data:/data
+      # 样例站点同时挂载到容器内，便于在宿主机直接查看离线 HTML
+      - ./sample_site:/app/sample_site:ro
+    environment:
+      DATA_DIR: /data
+      REQUEST_TIMEOUT: "10"
+      MAX_PAGES: "100"
+      MAX_CONCURRENCY: "8"
+    restart: unless-stopped
+
+volumes:
+  tender-data:
