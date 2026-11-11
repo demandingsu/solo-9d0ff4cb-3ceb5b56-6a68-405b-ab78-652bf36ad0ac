@@ -31,19 +31,26 @@ async def health() -> dict[str, str]:
 
 @app.post("/api/collect", response_model=CollectResponse)
 async def collect(req: CollectRequest) -> CollectResponse:
-    """触发一次完整采集。成功则整体替换旧结果；失败保留旧结果。"""
-    previous = await store.load()
+    """触发一次完整采集。
+
+    请求在开始时登记启动序号；抓取完全成功后才会尝试发布。若更晚发起
+    的采集已经成功发布，本次迟到的结果不覆盖新快照，并在响应中标明
+    未发布。抓取失败不触碰存储，也不阻塞先发起且仍在执行的请求。
+    """
+    sequence = await store.begin_collect()
+
     try:
         announcements, total_pages = await Crawler().collect(str(req.catalog_url))
     except CrawlError as exc:
-        # 不触碰 store：旧结果完整保留
+        # 不触碰 store：旧结果完整保留。此处只读取当前快照用于说明。
+        current = await store.load()
         raise HTTPException(
             status_code=502,
             detail={
                 "error": str(exc),
-                "previous_result_retained": previous is not None,
+                "previous_result_retained": current is not None,
                 "message": "采集失败，已保留上一次成功采集的结果"
-                if previous is not None
+                if current is not None
                 else "采集失败，且不存在历史结果",
             },
         ) from exc
@@ -55,14 +62,28 @@ async def collect(req: CollectRequest) -> CollectResponse:
         collected_at=Crawler.now_iso(),
         announcements=announcements,
     )
-    await store.replace(result)
+    published, replaced_previous = await store.publish(sequence, result)
+    if not published:
+        return CollectResponse(
+            status="not_published",
+            published=False,
+            publication_status="not_published",
+            catalog_url=result.catalog_url,
+            total_pages=result.total_pages,
+            total_announcements=result.total_announcements,
+            collected_at=result.collected_at,
+            replaced_previous=False,
+            message="本次采集结果未发布：已有更晚发起的采集成功发布，较新快照保持不变",
+        )
     return CollectResponse(
         status="collected",
+        published=True,
+        publication_status="published",
         catalog_url=result.catalog_url,
         total_pages=result.total_pages,
         total_announcements=result.total_announcements,
         collected_at=result.collected_at,
-        replaced_previous=previous is not None,
+        replaced_previous=replaced_previous,
     )
 
 

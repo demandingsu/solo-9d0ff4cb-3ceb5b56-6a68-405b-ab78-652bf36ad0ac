@@ -76,9 +76,14 @@ class TenderDetail(TenderSummary):
 
 
 class CollectResponse(BaseModel):
+    # collected: 本次结果已发布；not_published: 抓取成功但被更晚发起的
+    # 已发布采集取代，本次结果未写入存储。
     status: str
+    published: bool = True
+    publication_status: str = "published"  # published | not_published
     catalog_url: str
     total_pages: int
     total_announcements: int
     collected_at: str
     replaced_previous: bool
+    message: Optional[str] = None

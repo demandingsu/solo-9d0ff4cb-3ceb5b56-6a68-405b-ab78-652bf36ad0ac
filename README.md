@@ -11,6 +11,7 @@
    - 截止时间一致 → 取该时间并在 `notes` 说明；
    - 截止时间不一致 → `status=conflict`，`current_deadline=null`，`conflict` 列出全部冲突公告及其时间与来源链接，**不猜结果**。
 5. **重新采集**：再次采集成功时用完整新结果**整体替换**旧结果（临时文件 + 原子 rename）；抓取或解析任一页面失败时返回 502 且**不触碰存储**，旧结果完整保留。
+6. **并发发布顺序**：按请求**启动顺序**判定先后。只有完整成功的采集才会发布；若更晚发起的采集已经成功发布，迟到的旧结果不会覆盖较新快照，响应中 `published=false`、`status=not_published` 明确标明本次未发布。后发起的请求若抓取失败，不会更新已发布序号，先发起且仍在执行的成功请求仍可发布。查询只读取原子替换后的完整已发布快照。
 
 ## 目录结构
 
@@ -61,11 +62,25 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 // 成功响应 200
 {
   "status": "collected",
+  "published": true,
+  "publication_status": "published",
   "catalog_url": "...",
   "total_pages": 3,
   "total_announcements": 18,
   "collected_at": "2026-11-11T10:46:32.894225+00:00",
   "replaced_previous": true
+}
+// 抓取成功但已有更晚发起的采集成功发布：本次结果未写入存储
+{
+  "status": "not_published",
+  "published": false,
+  "publication_status": "not_published",
+  "catalog_url": "...",
+  "total_pages": 3,
+  "total_announcements": 18,
+  "collected_at": "...",
+  "replaced_previous": false,
+  "message": "本次采集结果未发布：已有更晚发起的采集成功发布，较新快照保持不变"
 }
 // 失败响应 502（旧结果保留）
 { "detail": { "error": "抓取失败 ...", "previous_result_retained": true,
@@ -118,8 +133,9 @@ A017 改期公告 valid=False 所依据的改期公告 A011 已失效（撤回�
 ```bash
 pip install -r requirements.txt
 pytest -q
-# 12 passed：链路规则 7 项（含撤回级联、并行冲突、部分撤回），API 全流程 5 项
-# （含采集失败保留旧结果、重新采集整体替换、离线样例可访问）
+# 14 passed：链路规则 7 项（含撤回级联、并行冲突、部分撤回），API 全流程 5 项
+# （含采集失败保留旧结果、重新采集整体替换、离线样例可访问），
+# 并发发布顺序 2 项（迟到旧结果不覆盖、后发起失败不阻塞先发起）
 ```
 
 ## 配置（环境变量）
